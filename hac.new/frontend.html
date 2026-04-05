@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Доставка — панель</title>
+  <style>
+    :root {
+      --bg: #e8e9eb;
+      --card: #fff;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
+    h2 { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; }
+    .card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      max-width: 720px;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+    }
+    textarea { min-height: 60px; resize: vertical; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.55rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary { background: #6b7280; }
+    button.secondary:hover { background: #4b5563; }
+    button.danger { background: var(--danger); }
+    button.small { padding: 0.35rem 0.65rem; font-size: 0.85rem; }
+    .hidden { display: none !important; }
+    .banner {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      max-width: 720px;
+    }
+    .err { background: #fee2e2; color: #991b1b; padding: 0.6rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.9rem; }
+    .ok { background: #d1fae5; color: #065f46; padding: 0.6rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.9rem; }
+    ul.stores { list-style: none; padding: 0; margin: 0; }
+    ul.stores li {
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      margin-bottom: 0.4rem;
+      cursor: pointer;
+    }
+    ul.stores li:hover, ul.stores li.active { border-color: var(--accent); background: #eff6ff; }
+    .order {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.75rem;
+      margin-bottom: 0.6rem;
+      font-size: 0.9rem;
+    }
+    .order strong { display: block; margin-bottom: 0.25rem; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    .cart-line { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid #f3f4f6; }
+    header.bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; max-width: 720px; }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    Откройте страницу через локальный сервер, если браузер блокирует запросы с <code>file://</code>:
+    <code>python -m http.server 3000</code> → <code>http://localhost:3000/frontend.html</code>
+  </div>
+
+  <div id="loginView" class="card">
+    <h1>Вход</h1>
+    <p class="muted">Используйте аккаунт с нужной ролью. Кнопка проверяет, что роль совпадает.</p>
+    <label>Email</label>
+    <input type="email" id="email" autocomplete="username" />
+    <label>Пароль</label>
+    <input type="password" id="password" autocomplete="current-password" />
+    <div class="row">
+      <button type="button" onclick="loginAs('customer')">Войти как покупатель</button>
+      <button type="button" onclick="loginAs('business')">Войти как бизнес</button>
+      <button type="button" onclick="loginAs('courier')">Войти как курьер</button>
+    </div>
+    <div id="loginErr" class="hidden err"></div>
+
+    <h2>Регистрация (тест)</h2>
+    <label>Роль</label>
+    <select id="regRole">
+      <option value="customer">Покупатель</option>
+      <option value="business">Бизнес</option>
+      <option value="courier">Курьер</option>
+    </select>
+    <label>ФИО</label>
+    <input type="text" id="regFullName" placeholder="Иван Иванов" />
+    <label>Email</label>
+    <input type="email" id="regEmail" />
+    <label>Пароль (мин. 8 символов)</label>
+    <input type="password" id="regPassword" />
+    <button type="button" class="secondary" onclick="register()">Зарегистрироваться</button>
+    <div id="regMsg" class="hidden"></div>
+  </div>
+
+  <div id="appView" class="hidden">
+    <header class="bar">
+      <span id="whoami" class="muted"></span>
+      <button type="button" class="secondary" onclick="logout()">Выйти</button>
+    </header>
+
+    <!-- Бизнес -->
+    <div id="panelBusiness" class="hidden">
+      <div class="card">
+        <h1>Бизнес</h1>
+        <h2>Организация</h2>
+        <label>Название</label>
+        <input type="text" id="orgName" placeholder="ООО Ромашка" />
+        <button type="button" onclick="bizCreateOrg()">Создать организацию</button>
+        <div id="orgMsg" class="hidden"></div>
+      </div>
+      <div class="card">
+        <h2>Точка</h2>
+        <p class="muted">Нужен organization_id (посмотрите в ответе API или список ниже). Зона — квадрат ~1 км вокруг точки.</p>
+        <label>ID организации</label>
+        <input type="number" id="storeOrgId" min="1" />
+        <label>Название точки</label>
+        <input type="text" id="storeName" />
+        <label>Адрес</label>
+        <input type="text" id="storeAddress" />
+        <label>Широта (центр зоны)</label>
+        <input type="text" id="storeLat" value="55.751244" />
+        <label>Долгота</label>
+        <input type="text" id="storeLon" value="37.618423" />
+        <button type="button" onclick="bizCreateStore()">Создать точку</button>
+        <div id="storeMsg" class="hidden"></div>
+      </div>
+      <div class="card">
+        <h2>Заказы</h2>
+        <button type="button" onclick="bizLoadOrders()">Обновить список</button>
+        <div id="bizOrders"></div>
+      </div>
+    </div>
+
+    <!-- Курьер -->
+    <div id="panelCourier" class="hidden">
+      <div class="card">
+        <h1>Курьер</h1>
+        <button type="button" id="btnShift" onclick="courierToggleShift()">Начать / закончить смену</button>
+        <p class="muted" id="shiftHint">Сначала заполните телефон и тип транспорта в API <code>/api/couriers/profile</code> или Swagger.</p>
+        <div id="courierMsg" class="hidden"></div>
+      </div>
+      <div class="card">
+        <h2>Доступные заказы</h2>
+        <button type="button" onclick="courierLoadAvailable()">Обновить</button>
+        <div id="availOrders"></div>
+      </div>
+      <div class="card">
+        <h2>Текущий заказ</h2>
+        <button type="button" onclick="courierLoadCurrent()">Обновить</button>
+        <div id="currentOrder"></div>
+      </div>
+    </div>
+
+    <!-- Покупатель -->
+    <div id="panelCustomer" class="hidden">
+      <div class="card">
+        <h1>Покупатель</h1>
+        <h2>Магазины</h2>
+        <button type="button" onclick="custLoadStores()">Обновить список</button>
+        <ul class="stores" id="storeList"></ul>
+      </div>
+      <div class="card hidden" id="menuCard">
+        <h2>Меню</h2>
+        <p class="muted" id="menuStoreTitle"></p>
+        <div id="menuArea"></div>
+      </div>
+      <div class="card">
+        <h2>Корзина</h2>
+        <div id="cartArea"></div>
+        <label>Адрес доставки</label>
+        <input type="text" id="delivAddress" placeholder="ул. Примерная, 1" />
+        <label>Широта доставки (внутри зоны магазина)</label>
+        <input type="text" id="delivLat" value="55.751244" />
+        <label>Долгота</label>
+        <input type="text" id="delivLon" value="37.618423" />
+        <button type="button" onclick="custPlaceOrder()">Заказать</button>
+        <div id="custMsg" class="hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:8000';
+
+    function token() { return localStorage.getItem('token'); }
+    function role() { return localStorage.getItem('role'); }
+
+    function authHeaders(useJson) {
+      const h = { Authorization: 'Bearer ' + token() };
+      if (useJson) h['Content-Type'] = 'application/json';
+      return h;
+    }
+
+    async function api(path, opts = {}) {
+      const jsonBody = typeof opts.body === 'string';
+      const r = await fetch(API + path, {
+        ...opts,
+        headers: { ...authHeaders(jsonBody), ...opts.headers },
+      });
+      const text = await r.text();
+      let data;
+      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+      if (!r.ok) {
+        const msg = (data && data.detail) ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : text || r.statusText;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    function show(el, cls, text) {
+      el.className = cls;
+      el.textContent = text;
+      el.classList.remove('hidden');
+    }
+
+    function loginAs(expectedRole) {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const err = document.getElementById('loginErr');
+      err.classList.add('hidden');
+      fetch(API + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, password }),
+      })
+        .then(async r => {
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(data.detail || r.statusText);
+          return data;
+        })
+        .then(data => {
+          const r = (data.role || '').toLowerCase();
+          if (r !== expectedRole) {
+            show(err, 'err', 'Роль аккаунта: ' + data.role + '. Нужна: ' + expectedRole);
+            return;
+          }
+          localStorage.setItem('token', data.access_token);
+          localStorage.setItem('role', r);
+          showApp();
+        })
+        .catch(e => show(err, 'err', e.message));
+    }
+
+    async function register() {
+      const el = document.getElementById('regMsg');
+      el.classList.add('hidden');
+      try {
+        await fetch(API + '/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: document.getElementById('regEmail').value.trim(),
+            password: document.getElementById('regPassword').value,
+            full_name: document.getElementById('regFullName').value.trim(),
+            role: document.getElementById('regRole').value,
+          }),
+        }).then(async r => {
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(data.detail || r.statusText);
+          return data;
+        });
+        show(el, 'ok', 'Готово. Теперь войдите.');
+      } catch (e) {
+        show(el, 'err', e.message);
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      document.getElementById('loginView').classList.remove('hidden');
+      document.getElementById('appView').classList.add('hidden');
+    }
+
+    function showApp() {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('appView').classList.remove('hidden');
+      document.getElementById('whoami').textContent = 'Роль: ' + role();
+      document.getElementById('panelBusiness').classList.add('hidden');
+      document.getElementById('panelCourier').classList.add('hidden');
+      document.getElementById('panelCustomer').classList.add('hidden');
+      if (role() === 'business') {
+        document.getElementById('panelBusiness').classList.remove('hidden');
+        bizLoadOrders();
+      } else if (role() === 'courier') {
+        document.getElementById('panelCourier').classList.remove('hidden');
+      } else if (role() === 'customer') {
+        document.getElementById('panelCustomer').classList.remove('hidden');
+        custLoadStores();
+      }
+    }
+
+    if (token() && role()) {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('appView').classList.remove('hidden');
+      showApp();
+    }
+
+    /* ——— Бизнес ——— */
+    async function bizCreateOrg() {
+      const msg = document.getElementById('orgMsg');
+      msg.classList.add('hidden');
+      try {
+        const data = await api('/api/businesses/organizations', {
+          method: 'POST',
+          body: JSON.stringify({ name: document.getElementById('orgName').value.trim() }),
+        });
+        show(msg, 'ok', 'Организация id=' + data.id + '. Укажите этот id при создании точки.');
+        document.getElementById('storeOrgId').value = data.id;
+      } catch (e) {
+        show(msg, 'err', e.message);
+      }
+    }
+
+    function squarePolygon(lon, lat, delta = 0.008) {
+      return {
+        type: 'Polygon',
+        coordinates: [[
+          [lon - delta, lat - delta],
+          [lon + delta, lat - delta],
+          [lon + delta, lat + delta],
+          [lon - delta, lat + delta],
+          [lon - delta, lat - delta],
+        ]],
+      };
+    }
+
+    async function bizCreateStore() {
+      const msg = document.getElementById('storeMsg');
+      msg.classList.add('hidden');
+      const orgId = parseInt(document.getElementById('storeOrgId').value, 10);
+      const lat = parseFloat(document.getElementById('storeLat').value);
+      const lon = parseFloat(document.getElementById('storeLon').value);
+      try {
+        await api('/api/businesses/stores', {
+          method: 'POST',
+          body: JSON.stringify({
+            organization_id: orgId,
+            name: document.getElementById('storeName').value.trim(),
+            address: document.getElementById('storeAddress').value.trim(),
+            coordinates: { lat, lon },
+            delivery_zone: squarePolygon(lon, lat),
+            phone: null,
+          }),
+        });
+        show(msg, 'ok', 'Точка создана.');
+      } catch (e) {
+        show(msg, 'err', e.message);
+      }
+    }
+
+    function bizStatusButtons(st) {
+      const s = (st || '').toLowerCase();
+      const btns = [];
+      if (s === 'pending') btns.push(['confirmed', 'Подтвердить']);
+      if (s === 'confirmed') btns.push(['preparing', 'Готовится']);
+      if (s === 'preparing') btns.push(['ready', 'Готов к выдаче']);
+      return btns;
+    }
+
+    async function bizSetStatus(id, status) {
+      try {
+        await api('/api/businesses/orders/' + id + '/status', {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        });
+        bizLoadOrders();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function bizLoadOrders() {
+      const box = document.getElementById('bizOrders');
+      box.innerHTML = '<p class="muted">Загрузка…</p>';
+      try {
+        const list = await api('/api/businesses/orders');
+        if (!list.length) {
+          box.innerHTML = '<p class="muted">Нет заказов</p>';
+          return;
+        }
+        box.innerHTML = list.map(o => {
+          const cust = o.customer || {};
+          const btns = bizStatusButtons(o.status).map(
+            ([st, label]) => `<button type="button" class="small" onclick="bizSetStatus(${o.id}, '${st}')">${label}</button>`
+          ).join(' ');
+          return `<div class="order">
+            <strong>#${o.id} · ${o.status}</strong>
+            <span class="muted">${o.public_id}</span><br/>
+            Сумма: ${o.total} · ${o.delivery_address || '—'}<br/>
+            Клиент: ${cust.email || ''} ${cust.phone || ''}<br/>
+            <div class="row" style="margin-top:0.5rem">${btns || '<span class="muted">Нет действий для этого статуса</span>'}</div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        box.innerHTML = '<div class="err">' + e.message + '</div>';
+      }
+    }
+
+    /* ——— Курьер ——— */
+    async function courierToggleShift() {
+      const msg = document.getElementById('courierMsg');
+      msg.classList.add('hidden');
+      try {
+        await api('/api/couriers/shift', { method: 'PATCH' });
+        show(msg, 'ok', 'Статус смены переключён (OFFLINE ↔ ONLINE).');
+        courierLoadAvailable();
+      } catch (e) {
+        show(msg, 'err', e.message);
+      }
+    }
+
+    async function courierLoadAvailable() {
+      const box = document.getElementById('availOrders');
+      box.innerHTML = '<p class="muted">Загрузка…</p>';
+      try {
+        const list = await api('/api/couriers/available-orders');
+        if (!list.length) {
+          box.innerHTML = '<p class="muted">Нет заказов (нужен ONLINE и не BUSY)</p>';
+          return;
+        }
+        box.innerHTML = list.map(
+          o => `<div class="order">
+            <strong>#${o.id}</strong> ${o.store_name} · ${(o.distance_km || 0).toFixed(2)} км<br/>
+            ${o.delivery_address || ''}<br/>
+            <button type="button" class="small" onclick="courierAccept(${o.id})">Взять</button>
+          </div>`
+        ).join('');
+      } catch (e) {
+        box.innerHTML = '<div class="err">' + e.message + '</div>';
+      }
+    }
+
+    async function courierAccept(id) {
+      try {
+        await api('/api/couriers/orders/' + id + '/accept', { method: 'POST' });
+        courierLoadAvailable();
+        courierLoadCurrent();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function courierLoadCurrent() {
+      const box = document.getElementById('currentOrder');
+      box.innerHTML = '<p class="muted">Загрузка…</p>';
+      try {
+        const o = await api('/api/couriers/current-order');
+        box.innerHTML = `<div class="order">
+          <strong>#${o.id} · ${o.status}</strong><br/>
+          ${o.delivery_address || ''}<br/>
+          Клиент: ${(o.customer && o.customer.phone) || ''} ${(o.customer && o.customer.email) || ''}<br/>
+          <div class="row" style="margin-top:0.5rem">
+            <button type="button" class="small" onclick="courierStatus('picked_up')">Забрал</button>
+            <button type="button" class="small" onclick="courierStatus('delivered')">Доставил</button>
+          </div>
+        </div>`;
+      } catch (e) {
+        box.innerHTML = '<p class="muted">' + e.message + '</p>';
+      }
+    }
+
+    async function courierStatus(st) {
+      try {
+        await api('/api/couriers/current-order/status', {
+          method: 'PATCH',
+          body: JSON.stringify({ status: st }),
+        });
+        courierLoadCurrent();
+        courierLoadAvailable();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    /* ——— Покупатель ——— */
+    let selectedStoreId = null;
+    let cart = {}; // itemId -> { name, price, qty }
+
+    async function custLoadStores() {
+      const ul = document.getElementById('storeList');
+      ul.innerHTML = '<li class="muted">Загрузка…</li>';
+      try {
+        const list = await fetch(API + '/api/customers/stores').then(r => r.json());
+        if (!Array.isArray(list) || !list.length) {
+          ul.innerHTML = '<li class="muted">Нет магазинов</li>';
+          return;
+        }
+        ul.innerHTML = list.map(
+          s => `<li data-id="${s.id}" onclick="custSelectStore(${s.id}, this)">${s.name} (id ${s.id})</li>`
+        ).join('');
+      } catch (e) {
+        ul.innerHTML = '<li class="err">' + e.message + '</li>';
+      }
+    }
+
+    async function custSelectStore(id, li) {
+      selectedStoreId = id;
+      document.querySelectorAll('#storeList li').forEach(x => x.classList.remove('active'));
+      if (li) li.classList.add('active');
+      const card = document.getElementById('menuCard');
+      const area = document.getElementById('menuArea');
+      document.getElementById('menuStoreTitle').textContent = 'Магазин id ' + id;
+      card.classList.remove('hidden');
+      area.innerHTML = '<p class="muted">Загрузка меню…</p>';
+      try {
+        const data = await fetch(API + '/api/customers/stores/' + id + '/menu').then(r => r.json());
+        const cats = data.categories || [];
+        let html = '';
+        cats.forEach(c => {
+          html += '<h3 style="font-size:1rem;margin:0.75rem 0 0.25rem">' + c.name + '</h3>';
+          (c.items || []).forEach(it => {
+            html += `<div class="cart-line">
+              <span>${it.name} — ${it.price} ₽</span>
+              <button type="button" class="small" onclick="custAddCart(${it.id}, '${encodeURIComponent(it.name)}', '${it.price}')">+</button>
+            </div>`;
+          });
+        });
+        area.innerHTML = html || '<p class="muted">Пустое меню</p>';
+      } catch (e) {
+        area.innerHTML = '<div class="err">' + e.message + '</div>';
+      }
+      renderCart();
+    }
+
+    function custAddCart(id, encName, price) {
+      const name = decodeURIComponent(encName);
+      if (!cart[id]) cart[id] = { name, price, qty: 0 };
+      cart[id].qty += 1;
+      renderCart();
+    }
+
+    function renderCart() {
+      const box = document.getElementById('cartArea');
+      const ids = Object.keys(cart);
+      if (!ids.length) {
+        box.innerHTML = '<p class="muted">Пусто</p>';
+        return;
+      }
+      box.innerHTML = ids.map(id => {
+        const x = cart[id];
+        return `<div class="cart-line"><span>${x.name} × ${x.qty}</span>
+          <button type="button" class="small secondary" onclick="custRmCart(${id})">−</button></div>`;
+      }).join('');
+    }
+
+    function custRmCart(id) {
+      if (!cart[id]) return;
+      cart[id].qty -= 1;
+      if (cart[id].qty <= 0) delete cart[id];
+      renderCart();
+    }
+
+    async function custPlaceOrder() {
+      const msg = document.getElementById('custMsg');
+      msg.classList.add('hidden');
+      if (!selectedStoreId) {
+        show(msg, 'err', 'Выберите магазин');
+        return;
+      }
+      const items = Object.entries(cart).filter(([, v]) => v.qty > 0).map(([id, v]) => ({
+        item_id: parseInt(id, 10),
+        quantity: v.qty,
+      }));
+      if (!items.length) {
+        show(msg, 'err', 'Корзина пуста');
+        return;
+      }
+      try {
+        await api('/api/customers/orders', {
+          method: 'POST',
+          body: JSON.stringify({
+            store_id: selectedStoreId,
+            delivery_address: document.getElementById('delivAddress').value.trim(),
+            delivery_coordinates: {
+              lat: parseFloat(document.getElementById('delivLat').value),
+              lon: parseFloat(document.getElementById('delivLon').value),
+            },
+            items,
+            comment: null,
+          }),
+        });
+        cart = {};
+        renderCart();
+        show(msg, 'ok', 'Заказ создан');
+      } catch (e) {
+        show(msg, 'err', e.message);
+      }
+    }
+  </script>
+</body>
+</html>

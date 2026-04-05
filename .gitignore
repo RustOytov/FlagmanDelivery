@@ -1,0 +1,17 @@
+.DS_Store
+
+.build
+DerivedData
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+__pycache__/
+*.pyc
+.venv/
+.env
+
+.pytest_cache/
+.mypy_cache/
+
+EOF
